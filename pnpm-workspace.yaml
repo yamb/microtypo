@@ -2,8 +2,6 @@ minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 minimumReleaseAgeExclude:
-  - 'yamb'
-  - 'yamb-*'
   - microtypo
   - oxfmt
   - oxlint
