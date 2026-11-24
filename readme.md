@@ -1,4 +1,4 @@
-# @meritt/yamb-microtypo
+# yamb-microtypo
 
 [![npm version][npm-image]][npm-url] [![Build status][github-actions-image]][github-actions-url] [![Coverage status][coveralls-image]][coveralls-url] [![Dependency status][libraries-image]][libraries-url]
 
@@ -11,12 +11,12 @@ For GitHub Packages, route the `@yamb` scope to `https://npm.pkg.github.com` and
 Requires Node.js 26.13 or later. Install the standard preparation chain.
 
 ```bash
-pnpm add yamb @meritt/yamb-markdown @meritt/yamb-microtypo
+pnpm add yamb yamb-markdown yamb-microtypo
 ```
 
 ```js
-import { markdown } from '@meritt/yamb-markdown';
-import { microtypo } from '@meritt/yamb-microtypo';
+import { markdown } from 'yamb-markdown';
+import { microtypo } from 'yamb-microtypo';
 import { prepare } from 'yamb/transform';
 
 await using md = markdown();
@@ -61,7 +61,7 @@ The factory accepts a plain object with `presets`, `rules` and `render`. Constru
 | `render` | Native settings are validated, but `html: false` skips text layout/link rules (`paragraphs`, `autolink`, `breakline`) and disables wrappers (`nowrap`, `hanging`, `prefix`); these settings do not affect the adapter's output. |
 
 ```js
-import { microtypo } from '@meritt/yamb-microtypo';
+import { microtypo } from 'yamb-microtypo';
 
 await using typo = microtypo({
   rules: {
@@ -116,11 +116,11 @@ The core executor wraps stage failures with stage/cause and preserves cancellati
 
 MIT. See `LICENSE`.
 
-[npm-image]: https://img.shields.io/npm/v/@meritt/yamb-microtypo?style=flat
-[npm-url]: https://www.npmjs.com/package/@meritt/yamb-microtypo
+[npm-image]: https://img.shields.io/npm/v/yamb-microtypo?style=flat
+[npm-url]: https://www.npmjs.com/package/yamb-microtypo
 [github-actions-image]: https://github.com/yamb/microtypo/actions/workflows/ci.yml/badge.svg
 [github-actions-url]: https://github.com/yamb/microtypo/actions/workflows/ci.yml
 [coveralls-image]: https://coveralls.io/repos/github/yamb/microtypo/badge.svg
 [coveralls-url]: https://coveralls.io/github/yamb/microtypo
-[libraries-image]: https://img.shields.io/librariesio/release/npm/%40meritt%2Fyamb-microtypo?style=flat
-[libraries-url]: https://libraries.io/npm/%40meritt%2Fyamb-microtypo
+[libraries-image]: https://img.shields.io/librariesio/release/npm/yamb-microtypo?style=flat
+[libraries-url]: https://libraries.io/npm/yamb-microtypo
