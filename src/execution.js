@@ -1,23 +1,31 @@
+import { addAbortListener } from 'node:events';
 import { Worker } from 'node:worker_threads';
 
 import { failure } from './limits.js';
 
 function cleanup(job) {
   clearTimeout(job.timer);
-  job.signal?.removeEventListener('abort', job.abort);
+  job.listener?.[Symbol.dispose]();
 }
 
-function timeout() {
-  return failure('YAMB_CONTENT_TIMEOUT', 'MicroTypo wall time exceeded 15000 ms');
+function closed() {
+  return failure('YAMB_CONTENT_INPUT', 'MicroTypo owner is closed');
 }
 
-export function execution(options, workerURL = new URL('./worker.js', import.meta.url)) {
+export function execution(
+  options,
+  workerURL = new URL('./worker.js', import.meta.url),
+  deadline = 15000
+) {
   let worker;
   let active;
-  let closed = false;
   let closing;
   let stopping = Promise.resolve();
   const queue = [];
+
+  function timeout() {
+    return failure('YAMB_CONTENT_TIMEOUT', `MicroTypo wall time exceeded ${deadline} ms`);
+  }
 
   function finish(job, error, value) {
     if (active !== job) {
@@ -27,26 +35,18 @@ export function execution(options, workerURL = new URL('./worker.js', import.met
     active = undefined;
     cleanup(job);
 
-    if (error !== undefined) {
-      job.reject(error);
-    } else {
+    if (error === undefined) {
       job.resolve(value);
+    } else {
+      job.reject(error);
     }
+
+    pump();
   }
 
   function stop() {
-    if (worker) {
-      const previous = worker;
-      worker = undefined;
-
-      stopping = (async () => {
-        try {
-          await previous.terminate();
-        } finally {
-          previous.removeAllListeners();
-        }
-      })();
-    }
+    stopping = worker?.terminate() ?? stopping;
+    worker = undefined;
 
     return stopping;
   }
@@ -57,18 +57,10 @@ export function execution(options, workerURL = new URL('./worker.js', import.met
     }
 
     job.stopping = true;
-    job.reason = reason;
-    cleanup(job);
 
     void (async () => {
-      try {
-        await stop();
-      } catch (cause) {
-        job.reason = failure('YAMB_CONTENT_WORKER', 'MicroTypo worker shutdown failed', cause);
-      }
-
-      finish(job, job.reason);
-      pump();
+      await stop();
+      finish(job, reason);
     })();
   }
 
@@ -97,62 +89,55 @@ export function execution(options, workerURL = new URL('./worker.js', import.met
         stackSizeMb: 8
       }
     });
-    worker = current;
+
+    function fail(what, cause) {
+      if (worker === current && active) {
+        interrupt(active, failure('YAMB_CONTENT_WORKER', `MicroTypo worker ${what}`, cause));
+      }
+    }
 
     current.on('message', (message) => {
       if (worker !== current || !active || active.stopping) {
         return;
       }
 
-      if (performance.now() >= active.deadline) {
-        interrupt(active, timeout());
+      if (message.ok) {
+        finish(active, undefined, message.value);
         return;
       }
 
-      let error;
+      const {
+        code = 'YAMB_CONTENT_INPUT',
+        message: text = 'MicroTypo operation failed',
+        field
+      } = message.error;
+      const error = failure(code, text, message.error);
 
-      if (!message.ok) {
-        const cause = message.error;
-        error = failure(
-          cause?.code ?? 'YAMB_CONTENT_INPUT',
-          cause?.message ?? 'MicroTypo operation failed',
-          cause
-        );
-
-        if (cause?.field !== undefined) {
-          error.field = cause.field;
-        }
+      if (field !== undefined) {
+        error.field = field;
       }
 
-      finish(active, error, message.value);
-      pump();
+      finish(active, error);
     });
 
-    current.on('error', (cause) => {
-      if (worker === current && active) {
-        interrupt(active, failure('YAMB_CONTENT_WORKER', 'MicroTypo worker failed', cause));
-      }
-    });
-
+    current.on('error', (cause) => fail('failed', cause));
+    current.on('messageerror', (cause) => fail('message failed', cause));
     current.on('exit', (code) => {
+      fail(`exited (${code})`);
+
       if (worker === current) {
         worker = undefined;
-
-        if (active) {
-          interrupt(active, failure('YAMB_CONTENT_WORKER', `MicroTypo worker exited (${code})`));
-        }
       }
     });
 
-    current.on('messageerror', (cause) => {
-      if (worker === current && active) {
-        interrupt(active, failure('YAMB_CONTENT_WORKER', 'MicroTypo worker message failed', cause));
-      }
-    });
+    // Must follow the listeners: adding a 'message' listener refs the worker again.
+    current.unref();
+
+    return current;
   }
 
   function pump() {
-    if (active || closed || queue.length === 0) {
+    if (active || queue.length === 0) {
       return;
     }
 
@@ -160,88 +145,66 @@ export function execution(options, workerURL = new URL('./worker.js', import.met
     active = job;
 
     void (async () => {
+      await stopping;
+
+      if (job.stopping) {
+        return;
+      }
+
       try {
-        await stopping;
-
-        if (closed || active !== job || job.stopping) {
-          return;
-        }
-
-        if (performance.now() >= job.deadline) {
-          interrupt(job, timeout());
-          return;
-        }
-
-        if (!worker) {
-          startWorker();
-        }
-
-        try {
-          worker.postMessage({ op: job.op, payload: job.payload });
-        } catch (cause) {
-          interrupt(
-            job,
-            failure('YAMB_CONTENT_INPUT', 'MicroTypo input cannot be transferred', cause)
-          );
-        }
+        worker ??= startWorker();
       } catch (cause) {
-        interrupt(job, failure('YAMB_CONTENT_WORKER', 'MicroTypo worker could not start', cause));
+        finish(job, failure('YAMB_CONTENT_WORKER', 'MicroTypo worker could not start', cause));
+        return;
+      }
+
+      try {
+        worker.postMessage(job.payload);
+      } catch (cause) {
+        finish(job, failure('YAMB_CONTENT_INPUT', 'MicroTypo input cannot be transferred', cause));
       }
     })();
   }
 
-  function run(op, payload, { signal } = {}) {
+  async function run(payload, { signal } = {}) {
     signal?.throwIfAborted();
 
-    if (closed) {
-      return Promise.reject(failure('YAMB_CONTENT_INPUT', 'MicroTypo owner is closed'));
+    if (closing) {
+      throw closed();
     }
 
-    if (active && queue.length >= 8) {
-      return Promise.reject(failure('YAMB_CONTENT_BUSY', 'MicroTypo queue is full'));
+    if (queue.length >= 8) {
+      throw failure('YAMB_CONTENT_BUSY', 'MicroTypo queue is full');
     }
 
-    return new Promise((resolve, reject) => {
-      const job = { op, payload, signal, resolve, reject, deadline: performance.now() + 15000 };
+    const job = { ...Promise.withResolvers(), payload };
+    job.timer = setTimeout(() => cancel(job, timeout()), deadline);
 
-      job.abort = () => cancel(job, signal.reason);
-      job.timer = setTimeout(() => cancel(job, timeout()), 15000);
-      signal?.addEventListener('abort', job.abort, { once: true });
+    if (signal) {
+      job.listener = addAbortListener(signal, () => cancel(job, signal.reason));
+    }
 
-      queue.push(job);
-      pump();
-    });
+    queue.push(job);
+    pump();
+
+    return job.promise;
   }
 
   function close() {
     if (!closing) {
-      closed = true;
-      const error = failure('YAMB_CONTENT_INPUT', 'MicroTypo owner is closed');
+      const error = closed();
 
       for (const job of queue.splice(0)) {
         cleanup(job);
         job.reject(error);
       }
 
-      const job = active;
-
-      if (job) {
-        if (!job.stopping) {
-          job.reason = error;
-        }
-
-        job.stopping = true;
-        cleanup(job);
+      if (active) {
+        interrupt(active, error);
       }
 
       closing = (async () => {
-        try {
-          await stop();
-        } finally {
-          if (job) {
-            finish(job, job.reason);
-          }
-        }
+        await stop();
       })();
     }
 

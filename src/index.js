@@ -2,16 +2,13 @@ import { MicroTypo, VERSION } from 'microtypo';
 
 import pkg from '../package.json' with { type: 'json' };
 import { execution } from './execution.js';
-import { input, string } from './limits.js';
+import { input, LIMIT, string } from './limits.js';
 
 function settings(options) {
   input(options && Object.getPrototypeOf(options) === Object.prototype, 'Expected native options');
 
   for (const key of Reflect.ownKeys(options)) {
-    input(
-      ['presets', 'rules', 'render'].includes(key),
-      `Unsupported MicroTypo option: ${String(key)}`
-    );
+    input(key === 'presets' || key === 'rules', `Unsupported MicroTypo option: ${String(key)}`);
   }
 
   const config = {
@@ -19,7 +16,7 @@ function settings(options) {
     input: 'html',
     html: false,
     entities: false,
-    maxInputLength: 5000000,
+    maxInputLength: LIMIT,
     maxProcessingMs: 10000
   };
   void new MicroTypo(config);
@@ -39,7 +36,6 @@ function html(value, field) {
 
 function fields(post) {
   input(post && typeof post === 'object' && !Array.isArray(post), 'Expected HtmlPost');
-  input(post.source && typeof post.source === 'object', 'Expected HtmlPost source');
   input(
     post.cover && typeof post.cover === 'object' && !Array.isArray(post.cover),
     'Expected cover'
@@ -75,7 +71,6 @@ export function microtypo(options = {}) {
     [Symbol.asyncDispose]: owner.close,
 
     async transform(value, ctx = {}) {
-      ctx.signal?.throwIfAborted();
       const payload = fields(value);
       const result = {
         ...value,
@@ -87,7 +82,7 @@ export function microtypo(options = {}) {
         result.preview = { ...value.preview };
       }
 
-      const { title, text, preview, ...cover } = await owner.run('process', payload, ctx);
+      const { title, text, preview, ...cover } = await owner.run(payload, ctx);
       result.title = title;
       result.text.html = text;
 

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { glob, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 
 const args = ['--test', '--test-concurrency=1'];
 
@@ -16,8 +16,7 @@ if (process.argv.includes('--coverage')) {
   );
 }
 
-const files = await Array.fromAsync(glob('test/**/*.test.js'));
-const result = spawnSync(process.execPath, [...args, ...files], {
+const result = spawnSync(process.execPath, [...args, 'test/**/*.test.js'], {
   stdio: 'inherit'
 });
 

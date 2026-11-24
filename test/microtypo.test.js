@@ -152,7 +152,7 @@ test('native rules are validated, copied and used; stage-owned settings cannot b
     { maxInputLength: 1 },
     { maxProcessingMs: 0 },
     { rules: { invented: true } },
-    { render: { invented: true } },
+    { render: {} },
     null,
     []
   ]) {

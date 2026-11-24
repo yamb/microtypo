@@ -52,13 +52,12 @@ Typography applies to `title`, `text.html`, existing `preview.html` and `cover.c
 
 ### Native options
 
-The factory accepts a plain object with `presets`, `rules` and `render`. Construction clones and validates the settings.
+The factory accepts a plain object with `presets` and `rules`. Construction clones and validates the settings.
 
 | Option | Native behavior |
 | --- | --- |
 | `presets` | Boolean; defaults to `true`. `false` omits built-in rule groups. |
 | `rules` | Native group, bundle and rule-selector switches, such as `{ quote: false }` or `{ 'quote.nested': false }`. |
-| `render` | Native settings are validated, but `html: false` skips text layout/link rules (`paragraphs`, `autolink`, `breakline`) and disables wrappers (`nowrap`, `hanging`, `prefix`); these settings do not affect the adapter's output. |
 
 ```js
 import { microtypo } from 'yamb-microtypo';
@@ -72,17 +71,18 @@ await using typo = microtypo({
 
 See [MicroTypo](https://github.com/meritt/microtypo) for native rule selectors. The adapter fixes the following settings and rejects them as options.
 
-| Setting           | Fixed value                                                                 |
-| ----------------- | --------------------------------------------------------------------------- |
-| `input`           | `'html'` for HTML fields; `'plain'` for separate cover alt                  |
-| `html`            | `false` — no generated typography markup, including hanging/nowrap wrappers |
-| `entities`        | `false` — Unicode output                                                    |
-| `maxInputLength`  | `5000000` UTF-16 units                                                      |
-| `maxProcessingMs` | `10000` ms cooperative budget per native `process` call                     |
+| Setting | Fixed value |
+| --- | --- |
+| `input` | `'html'` for HTML fields; `'plain'` for separate cover alt |
+| `html` | `false` — no generated typography markup, including hanging/nowrap wrappers |
+| `entities` | `false` — Unicode output |
+| `maxInputLength` | `5000000` UTF-16 units |
+| `maxProcessingMs` | `10000` ms cooperative budget per native `process` call |
+| `render` | Not accepted: with `html: false` no layout, link or wrapper markup is generated |
 
 ### Limits and lifecycle
 
-Each owner starts one worker on demand and reuses it across posts.
+Each owner starts one worker on demand and reuses it across posts. An idle worker does not keep the process alive.
 
 | Resource | Maximum |
 | --- | --- |
@@ -103,10 +103,10 @@ Factory failures are synchronous: an invalid options container or unsupported to
 | `YAMB_CONTENT_LIMIT` | Input/output string budget exceeded; includes `field` |
 | `YAMB_CONTENT_BUSY` | Queue full |
 | `YAMB_CONTENT_TIMEOUT` | Wall deadline exceeded |
-| `YAMB_CONTENT_WORKER` | Worker start, crash, exit, message or shutdown failure |
+| `YAMB_CONTENT_WORKER` | Worker start, crash, exit or message failure |
 | Native code, such as `ERR_MICROTYPO_BUDGET` | Native `process` failure; code/message are retained with the worker's error record as `cause` |
 
-The core executor wraps stage failures with stage/cause and preserves cancellation. Failed jobs return no partial post.
+The core executor wraps stage failures in `TransformError` with `details.stage` and the original `cause`, and passes cancellation through unchanged. Failed jobs return no partial post.
 
 ## Author
 
