@@ -1,6 +1,6 @@
 {
   "name": "yamb-microtypo",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Bounded MicroTypo typography for Yamb HTML preparation",
   "keywords": [
     "russian",
@@ -37,7 +37,7 @@
     "test:watch": "node --test --watch 'test/**/*.test.js'"
   },
   "dependencies": {
-    "microtypo": "^0.4.1"
+    "microtypo": "^0.4.2"
   },
   "devDependencies": {
     "oxfmt": "0.80.0",

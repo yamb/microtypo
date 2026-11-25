@@ -186,8 +186,8 @@ importers:
   .:
     dependencies:
       microtypo:
-        specifier: ^0.4.1
-        version: 0.4.1
+        specifier: ^0.4.2
+        version: 0.4.2
     devDependencies:
       node:
         specifier: runtime:26.13.1
@@ -445,8 +445,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  microtypo@0.4.1:
-    resolution: {integrity: sha512-qf656JEoZNac1hEXyZE2V8jCHzNvPIZ+V+LEKp/Ej8dc7Dgq68siUhs3WiFcfHmeEH7hJ8+8dsahh11zzt9Uew==}
+  microtypo@0.4.2:
+    resolution: {integrity: sha512-Ameeaca5vzTYfPZHevaaEt4ADRwXnnDqgUY5cxmiN9ono4g11NJ46ue9hNQGPNjGxzL3+6yICZKFwIIQSW3umQ==}
     engines: {node: '>=26.13.0'}
     hasBin: true
 
@@ -731,7 +731,7 @@ snapshots:
   '@oxlint/binding-win32-x64-msvc@1.95.0':
     optional: true
 
-  microtypo@0.4.1: {}
+  microtypo@0.4.2: {}
 
   node@runtime:26.13.1: {}
 
