@@ -7,18 +7,13 @@ import { string } from './limits.js';
 const engine = new MicroTypo(workerData);
 let plain;
 
-parentPort.on('message', ({ payload }) => {
+parentPort.on('message', (payload) => {
   try {
     const value = {};
 
     for (const [field, text] of Object.entries(payload)) {
-      let typo = engine;
-
-      if (field === 'alt') {
-        plain ??= new MicroTypo({ ...workerData, input: 'plain' });
-        typo = plain;
-      }
-
+      const typo =
+        field === 'alt' ? (plain ??= new MicroTypo({ ...workerData, input: 'plain' })) : engine;
       value[field] = string(typo.process(text), field);
     }
 
